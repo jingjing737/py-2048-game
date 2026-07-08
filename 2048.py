@@ -132,6 +132,8 @@ class Game2048:
                     cell = " " + text + " " * (padding - 1)
                 else:
                     cell = "    "
+                # 用空格先擦除再写入，防止残留
+                stdscr.addnstr(y, start_x + c * (cell_w + gap) + 1, " " * cell_w, cell_w)
                 stdscr.addnstr(y, start_x + c * (cell_w + gap) + 1, cell, cell_w - 1)
 
         # 底线
