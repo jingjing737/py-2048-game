@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 py-2048-game — 终端版 2048 游戏
-使用 Unicode 方块 + 键盘方向键操作
+使用 curses 渲染，纯 ASCII 边框
 """
 import os
 import random
@@ -10,28 +10,13 @@ import sys
 try:
     import curses
 except ImportError:
-    print("❌ 此项目需要 curses 库，macOS/Linux 自带，Windows 请安装 windows-curses")
+    print("❌ 此项目需要 curses 库，macOS/Linux 自带")
     sys.exit(1)
 
 
 class Game2048:
     SIZE = 4
     WIN_VALUE = 2048
-
-    COLORS = {
-        0:    ("", ""),
-        2:    ("\033[38;5;231m", "\033[0m"),       # 近白
-        4:    ("\033[38;5;230m", "\033[0m"),       # 浅黄
-        8:    ("\033[38;5;214m", "\033[0m"),       # 橙
-        16:   ("\033[38;5;208m", "\033[0m"),       # 深橙
-        32:   ("\033[38;5;202m", "\033[0m"),       # 红橙
-        64:   ("\033[38;5;196m", "\033[0m"),       # 红
-        128:  ("\033[38;5;226m", "\033[0m"),       # 金黄
-        256:  ("\033[38;5;220m", "\033[0m"),       # 亮金
-        512:  ("\033[38;5;190m", "\033[0m"),       # 黄
-        1024: ("\033[38;5;118m", "\033[0m"),       # 绿
-        2048: ("\033[38;5;46m",  "\033[0m"),       # 亮绿
-    }
 
     def __init__(self):
         self.board = [[0] * self.SIZE for _ in range(self.SIZE)]
@@ -106,24 +91,60 @@ class Game2048:
                     return True
         return False
 
-    def render(self):
-        os.system("clear" if os.name == "posix" else "cls")
-        print(f"\n  \033[1m2048\033[0m — 得分: {self.score}\n")
-        line = "  +" + "--+" * self.SIZE + "--"
-        print(line)
-        for r, row in enumerate(self.board):
-            cells = []
-            for val in row:
-                fg, reset = self.COLORS.get(val, ("", ""))
-                if val:
-                    cells.append(f"{fg}{str(val).center(3)}{reset}")
-                else:
-                    cells.append("   ")
-            print("  |".join(cells))
+    def get_cell_width(self, val):
+        """获取数字占位宽度"""
+        if val == 0:
+            return 4
+        return len(str(val)) + 2
+
+    def render(self, stdscr):
+        stdscr.clear()
+        h, w = stdscr.getmaxyx()
+
+        # 标题
+        title = f"  2048 — 得分: {self.score}"
+        stdscr.addnstr(0, max(0, (w - len(title)) // 2), title, w - 1)
+
+        # 画框
+        cell_w = 6  # 每格宽度
+        gap = 1
+        total_w = self.SIZE * (cell_w + gap) - gap
+        start_x = max(0, (w - total_w) // 2)
+        start_y = 2
+
+        # 顶线
+        top_line = "+" + ("-" * cell_w + "+") * self.SIZE
+        stdscr.addnstr(start_y, start_x, top_line, w - 1)
+
+        for r in range(self.SIZE):
+            # 横线
             if r < self.SIZE - 1:
-                print("  +" + "--+" * self.SIZE + "--")
-        print(line)
-        print("\n  ↑↓←→ 移动  R 重来  Q 退出")
+                line = "+" + ("-" * cell_w + "+") * self.SIZE
+                stdscr.addnstr(start_y + r * 2 + 1, start_x, line, w - 1)
+
+            # 格子内容
+            y = start_y + r * 2
+            for c in range(self.SIZE):
+                val = self.board[r][c]
+                if val:
+                    text = str(val)
+                    padding = cell_w - len(text)
+                    cell = " " + text + " " * (padding - 1)
+                else:
+                    cell = "    "
+                stdscr.addnstr(y, start_x + c * (cell_w + gap) + 1, cell, cell_w - 1)
+
+        # 底线
+        line = "+" + ("-" * cell_w + "+") * self.SIZE
+        stdscr.addnstr(start_y + self.SIZE * 2, start_x, line, w - 1)
+
+        # 底部提示
+        hint = " ↑↓←→ 移动  R 重来  Q 退出 "
+        hint_y = start_y + self.SIZE * 2 + 2
+        if hint_y < h:
+            stdscr.addnstr(hint_y, max(0, (w - len(hint)) // 2), hint, w - 1)
+
+        stdscr.refresh()
 
 
 def main(stdscr):
@@ -132,16 +153,22 @@ def main(stdscr):
     game = Game2048()
 
     while True:
-        game.render()
+        game.render(stdscr)
         if any(2048 in row for row in game.board):
-            print("\n  🎉 恭喜达到 2048！继续挑战更高分！")
+            msg = " 🎉 恭喜达到 2048！继续挑战更高分！ "
+            stdscr.addnstr(0, max(0, (stdscr.getmaxyx()[1] - len(msg)) // 2), msg, stdscr.getmaxyx()[1] - 1)
+            stdscr.refresh()
         if not game.can_move():
-            print(f"\n  💀 游戏结束！最终得分: {game.score}")
+            msg = f" 💀 游戏结束！最终得分: {game.score} "
+            stdscr.addnstr(0, max(0, (stdscr.getmaxyx()[1] - len(msg)) // 2), msg, stdscr.getmaxyx()[1] - 1)
+            stdscr.refresh()
             break
 
         key = stdscr.getch()
         if key == ord('q') or key == ord('Q'):
-            print(f"\n  退出，得分: {game.score}")
+            msg = f" 退出，得分: {game.score} "
+            stdscr.addnstr(0, max(0, (stdscr.getmaxyx()[1] - len(msg)) // 2), msg, stdscr.getmaxyx()[1] - 1)
+            stdscr.refresh()
             break
         if key == ord('r') or key == ord('R'):
             game = Game2048()
