@@ -109,17 +109,20 @@ class Game2048:
     def render(self):
         os.system("clear" if os.name == "posix" else "cls")
         print(f"\n  \033[1m2048\033[0m — 得分: {self.score}\n")
-        line = "  ┌" + "────┬" * (self.SIZE - 1) + "────┐"
+        line = "  +" + "--+" * self.SIZE + "--"
         print(line)
         for r, row in enumerate(self.board):
             cells = []
             for val in row:
                 fg, reset = self.COLORS.get(val, ("", ""))
-                cells.append(f"{fg}{str(val).center(4)}{reset}" if val else "    ")
-            print("  │" + "│".join(cells) + "│")
+                if val:
+                    cells.append(f"{fg}{str(val).center(3)}{reset}")
+                else:
+                    cells.append("   ")
+            print("  |".join(cells))
             if r < self.SIZE - 1:
-                print("  ├" + "────┼" * (self.SIZE - 1) + "────┤")
-        print("  └" + "────┴" * (self.SIZE - 1) + "────┘")
+                print("  +" + "--+" * self.SIZE + "--")
+        print(line)
         print("\n  ↑↓←→ 移动  R 重来  Q 退出")
 
 
